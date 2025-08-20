@@ -5,7 +5,7 @@ Handles audio transcription using Amazon Transcribe
 import logging
 import time
 import boto3
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from botocore.exceptions import ClientError
 
 logger = logging.getLogger(__name__)

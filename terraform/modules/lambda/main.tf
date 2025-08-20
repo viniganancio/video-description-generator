@@ -75,7 +75,6 @@ resource "aws_lambda_function" "processor" {
       DYNAMODB_TABLE_NAME  = var.dynamodb_table_name
       BEDROCK_MODEL_ID     = var.bedrock_model_id
       MAX_VIDEO_SIZE_MB    = tostring(var.max_video_size_mb)
-      AWS_REGION          = var.aws_region
       LOG_LEVEL           = "INFO"
     }
   }
@@ -121,7 +120,6 @@ resource "aws_lambda_function" "api" {
     variables = {
       DYNAMODB_TABLE_NAME     = var.dynamodb_table_name
       PROCESSOR_FUNCTION_NAME = aws_lambda_function.processor.function_name
-      AWS_REGION             = var.aws_region
       LOG_LEVEL              = "INFO"
     }
   }
@@ -161,5 +159,4 @@ resource "aws_lambda_permission" "api_gateway" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.api.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.aws_region}:*:*/*/*"
 }

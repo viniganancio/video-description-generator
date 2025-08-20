@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import boto3
 from botocore.exceptions import ClientError
 
@@ -60,12 +60,13 @@ class AWSServices:
             
             # Add TTL (30 days from now)
             ttl = int(time.time()) + (30 * 24 * 60 * 60)
-            update_expression += ", ttl = :ttl"
+            update_expression += ", #ttl = :ttl"
             expression_values[':ttl'] = ttl
             
             response = self.jobs_table.update_item(
                 Key={'job_id': job_id},
                 UpdateExpression=update_expression,
+                ExpressionAttributeNames={'#ttl': 'ttl'},
                 ExpressionAttributeValues=expression_values,
                 ReturnValues="UPDATED_NEW"
             )

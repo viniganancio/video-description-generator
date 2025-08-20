@@ -21,9 +21,10 @@ resource "aws_dynamodb_table" "video_jobs" {
 
   # Global Secondary Index for querying by status
   global_secondary_index {
-    name     = "status-created_at-index"
-    hash_key = "status"
-    range_key = "created_at"
+    name               = "status-created_at-index"
+    hash_key           = "status"
+    range_key          = "created_at"
+    projection_type    = "ALL"
   }
 
   # Enable point-in-time recovery
@@ -66,8 +67,9 @@ resource "aws_dynamodb_table" "video_cache" {
 
   # Global Secondary Index for cleanup by creation date
   global_secondary_index {
-    name      = "created_at-index"
-    hash_key  = "created_at"
+    name            = "created_at-index"
+    hash_key        = "created_at"
+    projection_type = "ALL"
   }
 
   # Enable point-in-time recovery

@@ -101,18 +101,6 @@ resource "aws_s3_bucket_policy" "video_storage" {
             "aws:SecureTransport" = "false"
           }
         }
-      },
-      {
-        Sid       = "EnforceSizeLimit"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:PutObject"
-        Resource  = "${aws_s3_bucket.video_storage.arn}/*"
-        Condition = {
-          NumericGreaterThan = {
-            "s3:object-size" = var.max_video_size_mb * 1024 * 1024
-          }
-        }
       }
     ]
   })

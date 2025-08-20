@@ -135,7 +135,7 @@ dmypy.json
 *.tfstate
 *.tfstate.*
 *.tfvars.backup
-*.tfplan
+*tfplan*
 .terraform/
 .terraform.lock.hcl
 terraform.rc
