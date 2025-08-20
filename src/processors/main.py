@@ -7,17 +7,33 @@ import logging
 import os
 import traceback
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 import boto3
 from video_processor import VideoProcessor
 from aws_services import AWSServices
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging for AWS Lambda
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s - %(name)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Set log level for boto3 to reduce noise
+logging.getLogger('boto3').setLevel(logging.WARNING)
+logging.getLogger('botocore').setLevel(logging.WARNING)
+logging.getLogger('urllib3').setLevel(logging.WARNING)
 
 # Initialize AWS services
 aws_services = AWSServices()
+
+
+def decimal_default(obj):
+    """JSON serializer for objects with Decimal types"""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 def lambda_handler(event, context):
@@ -32,7 +48,8 @@ def lambda_handler(event, context):
         dict: Processing result
     """
     try:
-        logger.info(f"Processing video job: {json.dumps(event, default=str)}")
+        logger.info(f"🚀 Lambda started processing video job")
+        logger.info(f"📋 Event details: {json.dumps(event, default=str)}")
         
         # Extract job information
         if 'Records' in event:
@@ -90,7 +107,7 @@ def lambda_handler(event, context):
                 'status': 'completed',
                 'description': result.get('description'),
                 'confidence_score': result.get('confidence_score', 0.0)
-            })
+            }, default=decimal_default)
         }
         
     except Exception as e:
@@ -124,5 +141,5 @@ def lambda_handler(event, context):
             'body': json.dumps({
                 'error': error_message,
                 'job_id': job_id
-            })
+            }, default=decimal_default)
         }

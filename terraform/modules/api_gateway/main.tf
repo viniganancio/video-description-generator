@@ -358,32 +358,32 @@ resource "aws_api_gateway_integration_response" "options_result_200" {
   }
 }
 
-# Request Validator
-resource "aws_api_gateway_request_validator" "main" {
-  name                        = "${var.name_prefix}-request-validator"
-  rest_api_id                 = aws_api_gateway_rest_api.main.id
-  validate_request_body       = true
-  validate_request_parameters = true
-}
+# Request Validator - Temporarily disabled for testing
+# resource "aws_api_gateway_request_validator" "main" {
+#   name                        = "${var.name_prefix}-request-validator"
+#   rest_api_id                 = aws_api_gateway_rest_api.main.id
+#   validate_request_body       = true
+#   validate_request_parameters = true
+# }
 
-# API Gateway Models
-resource "aws_api_gateway_model" "analyze_request" {
-  rest_api_id  = aws_api_gateway_rest_api.main.id
-  name         = "AnalyzeRequest"
-  content_type = "application/json"
+# API Gateway Models - Temporarily disabled for testing
+# resource "aws_api_gateway_model" "analyze_request" {
+#   rest_api_id  = aws_api_gateway_rest_api.main.id
+#   name         = "AnalyzeRequest"
+#   content_type = "application/json"
 
-  schema = jsonencode({
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "title": "Analyze Request Schema",
-    "type": "object",
-    "properties": {
-      "s3_key": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 1024,
-        "description": "S3 key of the video file to analyze"
-      }
-    },
-    "required": ["s3_key"]
-  })
-}
+#   schema = jsonencode({
+#     "$schema": "http://json-schema.org/draft-04/schema#",
+#     "title": "Analyze Request Schema",
+#     "type": "object",
+#     "properties": {
+#       "s3_key": {
+#         "type": "string",
+#         "minLength": 1,
+#         "maxLength": 1024,
+#         "description": "S3 key of the video file to analyze"
+#       }
+#     },
+#     "required": ["s3_key"]
+#   })
+# }

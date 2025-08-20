@@ -1,3 +1,6 @@
+# Get current AWS account ID
+data "aws_caller_identity" "current" {}
+
 # Lambda Execution Role for Video Processor
 resource "aws_iam_role" "processor_lambda_role" {
   name = "${var.name_prefix}-processor-lambda-role"
@@ -63,7 +66,8 @@ resource "aws_iam_role_policy" "processor_lambda_policy" {
           "s3:GetObject",
           "s3:PutObject",
           "s3:DeleteObject",
-          "s3:GetObjectVersion"
+          "s3:GetObjectVersion",
+          "s3:ListBucket"
         ]
         Resource = [
           "${var.s3_bucket_arn}",
@@ -73,11 +77,13 @@ resource "aws_iam_role_policy" "processor_lambda_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:DeleteObject"
         ]
         Resource = [
           "arn:aws:s3:::*transcribe*/*",
-          "arn:aws:s3:::aws-transcribe-*/*"
+          "arn:aws:s3:::aws-transcribe-*/*",
+          "${var.s3_bucket_arn}/transcriptions/*"
         ]
       },
       {
@@ -119,6 +125,15 @@ resource "aws_iam_role_policy" "processor_lambda_policy" {
           "transcribe:DeleteTranscriptionJob"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = [
+          "*"
+        ]
       },
       {
         Effect = "Allow"

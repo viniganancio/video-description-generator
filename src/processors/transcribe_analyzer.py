@@ -60,15 +60,10 @@ class TranscribeAnalyzer:
                 }
             }
             
-            # Add language identification if supported
-            try:
-                logger.info(f"  🌍 Enabling automatic language identification...")
-                job_config['IdentifyLanguage'] = True
-                job_config.pop('LanguageCode')  # Remove language code when using identification
-                logger.info(f"  ✅ Auto language detection enabled")
-            except Exception:
-                logger.info(f"  ⚠️ Using default language: en-US")
-                pass  # Fall back to English if language identification isn't supported
+            # Keep it simple with English for now to avoid issues
+            logger.info(f"  🌍 Using language: en-US")
+            # Note: IdentifyLanguage can cause issues with some video formats
+            # job_config['IdentifyLanguage'] = True
             
             logger.info(f"  🔄 Starting transcription job...")
             response = self.transcribe.start_transcription_job(**job_config)
@@ -219,7 +214,20 @@ class TranscribeAnalyzer:
         """
         try:
             job = transcription_response['TranscriptionJob']
-            transcript_uri = job['Transcript']['TranscriptFileUri']
+            logger.info(f"    📄 Processing transcription job response...")
+            
+            # Check if transcript exists
+            transcript_info = job.get('Transcript', {})
+            if not transcript_info:
+                logger.error(f"    ❌ No transcript info in job response")
+                return self._empty_transcript_result("No transcript info in response")
+            
+            transcript_uri = transcript_info.get('TranscriptFileUri')
+            if not transcript_uri:
+                logger.error(f"    ❌ No transcript URI in job response")
+                return self._empty_transcript_result("No transcript URI in response")
+            
+            logger.info(f"    🔗 Transcript URI: {transcript_uri}")
             
             # Download transcript from S3
             transcript_data = self._download_transcript(transcript_uri)
@@ -309,6 +317,19 @@ class TranscribeAnalyzer:
         except Exception as e:
             logger.error(f"    ❌ Failed to download transcript: {str(e)}")
             return None
+    
+    def _empty_transcript_result(self, error_message: str) -> Dict[str, Any]:
+        """Return empty transcript result with error"""
+        return {
+            'transcript': '',
+            'confidence': 0.0,
+            'error': error_message,
+            'speaker_labels': [],
+            'alternative_transcripts': [],
+            'word_count': 0,
+            'duration_seconds': 0,
+            'language_code': 'unknown'
+        }
     
     def _extract_speaker_labels(self, transcript_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract speaker label information"""
