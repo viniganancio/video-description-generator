@@ -80,9 +80,17 @@ class TranscribeAnalyzer:
                     'ShowSpeakerLabels': True,
                     'MaxSpeakerLabels': 5,
                     'ShowAlternatives': True,
-                    'MaxAlternatives': 3
+                    'MaxAlternatives': 3,
+                    # Add settings to better detect audio content
+                    'VocabularyFilterMethod': 'remove',  # Help with music filtering
+                    'ChannelIdentification': False,  # Disable channel separation for music
                 }
             }
+            
+            # Note: Music detection is challenging for speech-to-text services
+            # Amazon Transcribe is optimized for speech, not singing/music
+            # Songs may not transcribe well even if audio is present
+            logger.info(f"  🎵 Note: Transcribing music/songs may not work well - Transcribe is optimized for speech")
             
             # Keep it simple with English for now to avoid issues
             logger.info(f"  🌍 Using language: en-US")
@@ -358,7 +366,16 @@ class TranscribeAnalyzer:
             logger.info(f"    📊 Transcript structure: {len(items)} items, {len(transcripts)} transcripts")
             
             if not items and not transcripts:
-                logger.warning(f"    ⚠️ No audio content detected in transcript - video may not have audio or audio format unsupported")
+                logger.warning(f"    ⚠️ No speech content detected in transcript")
+                logger.info(f"    🎵 This could mean:")
+                logger.info(f"       - Video has no audio track")
+                logger.info(f"       - Audio is music/singing (hard to transcribe)")
+                logger.info(f"       - Audio codec is unsupported")
+                logger.info(f"       - Audio volume too low")
+            elif transcripts and len(transcripts) > 0 and not transcripts[0].get('transcript'):
+                logger.warning(f"    🎶 Audio detected but no speech transcribed (likely music/instrumental)")
+            else:
+                logger.info(f"    ✅ Speech content successfully transcribed")
             
             return transcript_json
             
