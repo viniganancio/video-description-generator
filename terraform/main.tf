@@ -42,10 +42,11 @@ locals {
 module "iam" {
   source = "./modules/iam"
 
-  name_prefix        = local.name_prefix
-  s3_bucket_arn     = module.s3.bucket_arn
-  dynamodb_table_arn = module.dynamodb.table_arn
-  tags              = local.common_tags
+  name_prefix                = local.name_prefix
+  s3_bucket_arn             = module.s3.bucket_arn
+  dynamodb_table_arn        = module.dynamodb.table_arn
+  dynamodb_cache_table_arn  = module.dynamodb.cache_table_arn
+  tags                      = local.common_tags
 }
 
 # S3 Module

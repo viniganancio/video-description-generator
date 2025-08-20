@@ -82,7 +82,9 @@ resource "aws_iam_role_policy" "processor_lambda_policy" {
         ]
         Resource = [
           var.dynamodb_table_arn,
-          "${var.dynamodb_table_arn}/*"
+          "${var.dynamodb_table_arn}/*",
+          var.dynamodb_cache_table_arn,
+          "${var.dynamodb_cache_table_arn}/*"
         ]
       },
       {
@@ -163,6 +165,16 @@ resource "aws_iam_role_policy" "api_lambda_policy" {
           "lambda:InvokeFunction"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:HeadObject"
+        ]
+        Resource = [
+          "${var.s3_bucket_arn}/*"
+        ]
       },
       {
         Effect = "Allow"

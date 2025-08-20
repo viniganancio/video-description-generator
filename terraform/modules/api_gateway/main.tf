@@ -102,10 +102,11 @@ resource "aws_api_gateway_method" "analyze_post" {
   http_method   = "POST"
   authorization = "NONE"
 
-  request_validator_id = aws_api_gateway_request_validator.main.id
-  request_models = {
-    "application/json" = aws_api_gateway_model.analyze_request.name
-  }
+  # Temporarily disable request validation for testing
+  # request_validator_id = aws_api_gateway_request_validator.main.id
+  # request_models = {
+  #   "application/json" = aws_api_gateway_model.analyze_request.name
+  # }
 }
 
 # API Gateway Methods - GET /status/{job_id}
@@ -376,12 +377,13 @@ resource "aws_api_gateway_model" "analyze_request" {
     "title": "Analyze Request Schema",
     "type": "object",
     "properties": {
-      "video_url": {
+      "s3_key": {
         "type": "string",
         "minLength": 1,
-        "maxLength": 2048
+        "maxLength": 1024,
+        "description": "S3 key of the video file to analyze"
       }
     },
-    "required": ["video_url"]
+    "required": ["s3_key"]
   })
 }

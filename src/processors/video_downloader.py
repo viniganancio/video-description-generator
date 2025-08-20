@@ -114,12 +114,14 @@ class VideoDownloader:
         output_template = os.path.join(temp_dir, f"{job_id}_%(title)s.%(ext)s")
         
         # yt-dlp command with size and quality limits
+        # Use the yt-dlp binary from Lambda layer
+        yt_dlp_path = '/opt/bin/yt-dlp' if os.path.exists('/opt/bin/yt-dlp') else 'yt-dlp'
         cmd = [
-            'yt-dlp',
+            yt_dlp_path,
             '--format', 'best[filesize<?{}M]/best'.format(self.max_size_mb),
             '--output', output_template,
             '--no-playlist',
-            '--extract-flat', 'false',
+            '--cache-dir', '/tmp/yt-dlp-cache',
             url
         ]
         

@@ -120,6 +120,7 @@ resource "aws_lambda_function" "api" {
     variables = {
       DYNAMODB_TABLE_NAME     = var.dynamodb_table_name
       PROCESSOR_FUNCTION_NAME = aws_lambda_function.processor.function_name
+      S3_BUCKET_NAME          = var.s3_bucket_name
       LOG_LEVEL              = "INFO"
     }
   }

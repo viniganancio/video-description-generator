@@ -1,0 +1,1 @@
+{"statusCode": 404, "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "X-Request-ID": "e5f64b68"}, "body": "{\"error\": \"S3 object not found: sample_1.mp4\", \"timestamp\": \"2025-08-20T19:03:00.682475Z\"}"}

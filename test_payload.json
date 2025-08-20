@@ -1,0 +1,8 @@
+{
+  "httpMethod": "POST",
+  "path": "/analyze",
+  "body": "{\"s3_key\": \"sample_1.mp4\"}",
+  "headers": {
+    "Content-Type": "application/json"
+  }
+}

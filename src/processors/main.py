@@ -49,10 +49,10 @@ def lambda_handler(event, context):
             job_data = event
             
         job_id = job_data.get('job_id')
-        video_url = job_data.get('video_url')
+        s3_key = job_data.get('s3_key')
         
-        if not job_id or not video_url:
-            raise ValueError("Missing required job_id or video_url")
+        if not job_id or not s3_key:
+            raise ValueError("Missing required job_id or s3_key")
             
         # Update job status to processing
         aws_services.update_job_status(
@@ -65,7 +65,7 @@ def lambda_handler(event, context):
         processor = VideoProcessor(aws_services)
         
         # Process the video
-        result = processor.process_video(job_id, video_url)
+        result = processor.process_video_from_s3(job_id, s3_key)
         
         # Update job with final results
         aws_services.update_job_status(

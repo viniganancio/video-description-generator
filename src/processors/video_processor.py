@@ -106,6 +106,72 @@ class VideoProcessor:
                 except Exception as cleanup_error:
                     logger.warning(f"Failed to cleanup S3 object {s3_key}: {cleanup_error}")
     
+    def process_video_from_s3(self, job_id: str, s3_key: str) -> Dict[str, Any]:
+        """
+        Process a video that's already stored in S3
+        
+        Args:
+            job_id: Unique job identifier
+            s3_key: S3 key of the video file
+            
+        Returns:
+            dict: Processing results with description and analysis data
+        """
+        start_time = time.time()
+        
+        try:
+            logger.info(f"Starting S3 video processing for job {job_id}, key: {s3_key}")
+            
+            # Check cache first using S3 key
+            cached_result = self._check_cache_by_key(s3_key)
+            if cached_result:
+                logger.info(f"Found cached result for S3 key: {s3_key}")
+                return cached_result
+            
+            # Verify S3 object exists
+            try:
+                self.aws_services.s3_client.head_object(Bucket=self.s3_bucket, Key=s3_key)
+            except Exception as e:
+                raise ValueError(f"S3 object not found: {s3_key} - {str(e)}")
+            
+            # Run parallel analysis directly on S3 video
+            logger.info("Starting parallel analysis...")
+            visual_analysis, audio_analysis = self._run_parallel_analysis(s3_key, job_id)
+            
+            # Generate description using Bedrock
+            logger.info("Generating description...")
+            description_result = self.bedrock_client.generate_description(
+                visual_analysis=visual_analysis,
+                audio_analysis=audio_analysis,
+                video_url=f"s3://{self.s3_bucket}/{s3_key}"  # Use S3 URI for context
+            )
+            
+            # Calculate confidence score
+            confidence_score = self._calculate_confidence_score(
+                visual_analysis, audio_analysis, description_result
+            )
+            
+            processing_duration = time.time() - start_time
+            
+            result = {
+                'description': description_result.get('description'),
+                'visual_analysis': visual_analysis,
+                'audio_analysis': audio_analysis,
+                'confidence_score': confidence_score,
+                'processing_duration': processing_duration,
+                'bedrock_metrics': description_result.get('metrics', {})
+            }
+            
+            # Cache the result using S3 key
+            self._cache_result_by_key(s3_key, result)
+            
+            logger.info(f"S3 video processing completed in {processing_duration:.2f} seconds")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error in S3 video processing: {str(e)}")
+            raise
+    
     def _run_parallel_analysis(self, s3_key: str, job_id: str) -> tuple:
         """
         Run visual and audio analysis in parallel
@@ -229,5 +295,24 @@ class VideoProcessor:
             # Cache for 7 days
             ttl = int(time.time()) + (7 * 24 * 60 * 60)
             self.aws_services.cache_result(url_hash, result, ttl)
+        except Exception as e:
+            logger.warning(f"Failed to cache result: {str(e)}")
+    
+    def _check_cache_by_key(self, s3_key: str) -> Optional[Dict[str, Any]]:
+        """Check if we have a cached result for this S3 key"""
+        try:
+            key_hash = hashlib.md5(s3_key.encode()).hexdigest()
+            return self.aws_services.get_cached_result(key_hash)
+        except Exception as e:
+            logger.warning(f"Cache check failed: {str(e)}")
+            return None
+    
+    def _cache_result_by_key(self, s3_key: str, result: Dict[str, Any]):
+        """Cache the processing result by S3 key"""
+        try:
+            key_hash = hashlib.md5(s3_key.encode()).hexdigest()
+            # Cache for 7 days
+            ttl = int(time.time()) + (7 * 24 * 60 * 60)
+            self.aws_services.cache_result(key_hash, result, ttl)
         except Exception as e:
             logger.warning(f"Failed to cache result: {str(e)}")

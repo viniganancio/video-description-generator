@@ -46,10 +46,6 @@ class RekognitionAnalyzer:
             # Start label detection
             labels_response = self.rekognition.start_label_detection(
                 Video=video_input,
-                NotificationChannel={
-                    'SNSTopic': f'arn:aws:sns:us-east-1:123456789012:rekognition-{job_id}',
-                    'RoleArn': 'arn:aws:iam::123456789012:role/service-role/RekognitionServiceRole'
-                } if False else {},  # Disable SNS for now
                 JobTag=f"labels-{job_id}"
             )
             analysis_jobs['labels'] = labels_response['JobId']

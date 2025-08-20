@@ -20,6 +20,13 @@ echo "Installing dependencies to: $LAYER_DIR"
 mkdir -p "$LAYER_DIR"
 pip install -r "$REQUIREMENTS_FILE" --target "$LAYER_DIR" --no-deps --platform linux_x86_64 --only-binary=:all:
 
+# Download yt-dlp binary for Lambda (Linux x86_64)
+echo "Downloading yt-dlp binary..."
+BIN_DIR="$TEMP_DIR/bin"
+mkdir -p "$BIN_DIR"
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$BIN_DIR/yt-dlp"
+chmod +x "$BIN_DIR/yt-dlp"
+
 # Remove unnecessary files to reduce layer size
 echo "Cleaning up unnecessary files..."
 find "$LAYER_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
@@ -32,7 +39,7 @@ find "$LAYER_DIR" -type d -name "test" -exec rm -rf {} + 2>/dev/null || true
 # Create zip file
 echo "Creating layer zip file..."
 cd "$TEMP_DIR"
-zip -r "$LAYER_NAME.zip" python/
+zip -r "$LAYER_NAME.zip" python/ bin/
 mv "$LAYER_NAME.zip" "$(dirname "$0")/"
 
 # Clean up

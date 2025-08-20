@@ -13,6 +13,11 @@ variable "dynamodb_table_arn" {
   type        = string
 }
 
+variable "dynamodb_cache_table_arn" {
+  description = "DynamoDB cache table ARN"
+  type        = string
+}
+
 variable "tags" {
   description = "Common tags for all resources"
   type        = map(string)

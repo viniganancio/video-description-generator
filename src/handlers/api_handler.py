@@ -36,38 +36,43 @@ class APIHandler:
         Handle POST /analyze endpoint
         
         Args:
-            body: Request body containing video_url
+            body: Request body containing s3_key
             
         Returns:
             dict: HTTP response
         """
         try:
             # Validate request
-            video_url = body.get('video_url')
-            if not video_url:
-                return self.error_response(400, "Missing required field: video_url")
+            s3_key = body.get('s3_key')
+            if not s3_key:
+                return self.error_response(400, "Missing required field: s3_key")
             
-            # Validate URL format
-            if not self._is_valid_url(video_url):
-                return self.error_response(400, "Invalid video URL format")
+            # Validate S3 key format
+            if not self._is_valid_s3_key(s3_key):
+                return self.error_response(400, "Invalid S3 key format")
             
-            # Check URL length
-            if len(video_url) > 2048:
-                return self.error_response(400, "Video URL too long (max 2048 characters)")
+            # Check key length
+            if len(s3_key) > 1024:
+                return self.error_response(400, "S3 key too long (max 1024 characters)")
+            
+            # Verify S3 object exists
+            if not self._verify_s3_object_exists(s3_key):
+                return self.error_response(404, f"S3 object not found: {s3_key}")
             
             # Generate unique job ID
             job_id = str(uuid.uuid4())
             
             # Create job record
-            self._create_job_record(job_id, video_url)
+            self._create_job_record(job_id, s3_key)
             
             # Trigger video processor Lambda asynchronously
-            self._trigger_video_processor(job_id, video_url)
+            self._trigger_video_processor(job_id, s3_key)
             
             return self.success_response(202, {
                 'job_id': job_id,
                 'status': 'pending',
                 'message': 'Video analysis started',
+                's3_key': s3_key,
                 'estimated_completion_time': self._estimate_completion_time()
             })
             
@@ -99,7 +104,7 @@ class APIHandler:
             status_response = {
                 'job_id': job_id,
                 'status': job_data.get('job_status', 'unknown'),
-                'video_url': job_data.get('video_url'),
+                's3_key': job_data.get('s3_key'),
                 'created_at': job_data.get('created_at'),
                 'updated_at': job_data.get('updated_at')
             }
@@ -184,7 +189,7 @@ class APIHandler:
                 result_response = {
                     'job_id': job_id,
                     'status': status,
-                    'video_url': job_data.get('video_url'),
+                    's3_key': job_data.get('s3_key'),
                     'description': job_data.get('description'),
                     'confidence_score': job_data.get('confidence_score', 0.0),
                     'created_at': job_data.get('created_at'),
@@ -264,7 +269,30 @@ class APIHandler:
         except Exception:
             return False
     
-    def _create_job_record(self, job_id: str, video_url: str) -> None:
+    def _is_valid_s3_key(self, s3_key: str) -> bool:
+        """Validate S3 key format"""
+        try:
+            # Basic S3 key validation
+            if not s3_key or s3_key.startswith('/') or s3_key.endswith('/'):
+                return False
+            # Check for invalid characters
+            invalid_chars = ['\\', '{', '}', '^', '%', '`', ']', '"', '>', '[', '~', '<', '#', '|']
+            return not any(char in s3_key for char in invalid_chars)
+        except Exception:
+            return False
+    
+    def _verify_s3_object_exists(self, s3_key: str) -> bool:
+        """Verify S3 object exists"""
+        try:
+            s3_client = boto3.client('s3')
+            bucket_name = os.environ['S3_BUCKET_NAME']
+            s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+            return True
+        except Exception as e:
+            logger.warning(f"S3 object not found: {s3_key}, error: {str(e)}")
+            return False
+    
+    def _create_job_record(self, job_id: str, s3_key: str) -> None:
         """Create job record in DynamoDB"""
         current_time = datetime.utcnow().isoformat()
         ttl = int(time.time()) + (30 * 24 * 60 * 60)  # 30 days TTL
@@ -272,7 +300,7 @@ class APIHandler:
         self.jobs_table.put_item(
             Item={
                 'job_id': job_id,
-                'video_url': video_url,
+                's3_key': s3_key,
                 'job_status': 'pending',
                 'created_at': current_time,
                 'updated_at': current_time,
@@ -291,11 +319,11 @@ class APIHandler:
             logger.error(f"Failed to get job record: {str(e)}")
             return None
     
-    def _trigger_video_processor(self, job_id: str, video_url: str) -> None:
+    def _trigger_video_processor(self, job_id: str, s3_key: str) -> None:
         """Trigger video processor Lambda asynchronously"""
         payload = {
             'job_id': job_id,
-            'video_url': video_url
+            's3_key': s3_key
         }
         
         try:
