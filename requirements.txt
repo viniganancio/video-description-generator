@@ -1,0 +1,6 @@
+# Production dependencies for Lambda functions
+boto3>=1.34.0
+botocore>=1.34.0
+yt-dlp>=2024.1.30
+requests>=2.31.0
+urllib3>=1.26.18

@@ -1,0 +1,27 @@
+# Development dependencies
+-r requirements.txt
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+moto>=4.2.0
+responses>=0.23.0
+
+# Code quality
+black>=23.7.0
+flake8>=6.0.0
+isort>=5.12.0
+mypy>=1.5.0
+
+# Development tools
+pre-commit>=3.3.0
+ipython>=8.14.0
+jupyter>=1.0.0
+
+# AWS tools
+awscli>=1.32.0
+
+# Documentation
+mkdocs>=1.5.0
+mkdocs-material>=9.1.0
