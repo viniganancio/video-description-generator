@@ -16,6 +16,8 @@ from rekognition_analyzer import RekognitionAnalyzer
 from transcribe_analyzer import TranscribeAnalyzer
 from bedrock_client import BedrockClient
 
+# Ensure logging is properly configured for AWS Lambda
+logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 

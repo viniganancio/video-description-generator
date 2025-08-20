@@ -18,6 +18,8 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(levelname)s - %(name)s - %(message)s'
 )
+# Set root logger level - this is crucial for AWS Lambda
+logging.getLogger().setLevel('INFO')
 logger = logging.getLogger(__name__)
 
 # Set log level for boto3 to reduce noise

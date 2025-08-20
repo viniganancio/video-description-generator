@@ -8,6 +8,8 @@ import boto3
 from typing import Dict, Any, Optional, List
 from botocore.exceptions import ClientError
 
+# Ensure logging is properly configured for AWS Lambda
+logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -229,6 +231,13 @@ class TranscribeAnalyzer:
             
             logger.info(f"    🔗 Transcript URI: {transcript_uri}")
             
+            # Parse and log the S3 details before downloading
+            import urllib.parse
+            parsed_uri = urllib.parse.urlparse(transcript_uri)
+            bucket = parsed_uri.netloc
+            key = parsed_uri.path.lstrip('/')
+            logger.info(f"    📍 Parsed S3 details: bucket='{bucket}', key='{key}'")
+            
             # Download transcript from S3
             transcript_data = self._download_transcript(transcript_uri)
             
@@ -291,15 +300,26 @@ class TranscribeAnalyzer:
             
             logger.info(f"    📋 Downloading transcript from: {transcript_uri}")
             
-            # Parse S3 URI
+            # Extract the key from the URI - we'll use our known bucket name
             parsed_uri = urllib.parse.urlparse(transcript_uri)
-            bucket = parsed_uri.netloc
-            key = parsed_uri.path.lstrip('/')
+            # For path-style URLs like https://s3.us-east-1.amazonaws.com/bucket/key
+            # Extract everything after the bucket name in the path
+            path_parts = parsed_uri.path.lstrip('/').split('/', 1)
+            if len(path_parts) > 1:
+                key = path_parts[1]  # Everything after bucket name
+            else:
+                key = parsed_uri.path.lstrip('/')
             
-            logger.info(f"    📺 S3 location: s3://{bucket}/{key}")
+            # Use our known bucket name from environment
+            bucket = self.s3_bucket
             
-            # Download from S3
-            s3_client = boto3.client('s3')
+            logger.info(f"    📺 Using our bucket: {bucket}")
+            logger.info(f"    🔑 Transcript key: {key}")
+            
+            # Download from S3 using our bucket and extracted key
+            s3_client = self.aws_services.s3_client
+            logger.info(f"    📥 Downloading transcript file...")
+            
             response = s3_client.get_object(Bucket=bucket, Key=key)
             transcript_json = json.loads(response['Body'].read().decode('utf-8'))
             

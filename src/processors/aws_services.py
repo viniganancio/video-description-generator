@@ -12,6 +12,8 @@ from decimal import Decimal
 import boto3
 from botocore.exceptions import ClientError
 
+# Ensure logging is properly configured for AWS Lambda
+logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
