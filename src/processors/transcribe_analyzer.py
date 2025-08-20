@@ -47,6 +47,28 @@ class TranscribeAnalyzer:
             logger.info(f"  📹 Media URI: {media_uri}")
             logger.info(f"  📀 Media Format: {media_format}")
             
+            # Check if the video file has audio by examining its metadata
+            try:
+                logger.info(f"  🔍 Checking video file metadata...")
+                head_response = self.aws_services.s3_client.head_object(Bucket=self.s3_bucket, Key=s3_key)
+                file_size = head_response.get('ContentLength', 0)
+                logger.info(f"  📏 File size: {file_size / (1024*1024):.2f} MB")
+                
+                # Log file extension and expected audio capability
+                extension = s3_key.lower().split('.')[-1]
+                audio_formats = ['mp3', 'wav', 'flac', 'ogg', 'amr']
+                video_with_audio = ['mp4', 'avi', 'mov', 'webm', 'm4a']
+                
+                if extension in audio_formats:
+                    logger.info(f"  🎵 File is audio format ({extension}) - should contain audio")
+                elif extension in video_with_audio:
+                    logger.info(f"  🎬 File is video format ({extension}) - may or may not contain audio track")
+                else:
+                    logger.warning(f"  ⚠️ Unknown format ({extension}) - transcription may not work")
+                    
+            except Exception as metadata_error:
+                logger.warning(f"  ⚠️ Could not check file metadata: {metadata_error}")
+            
             job_config = {
                 'TranscriptionJobName': transcription_job_name,
                 'LanguageCode': 'en-US',  # Default to English, could be auto-detected
@@ -251,11 +273,14 @@ class TranscribeAnalyzer:
                 }
             
             # Extract main transcript
-            main_transcript = transcript_data.get('results', {}).get('transcripts', [])
+            results = transcript_data.get('results', {})
+            main_transcript = results.get('transcripts', [])
             transcript_text = main_transcript[0].get('transcript', '') if main_transcript else ''
             
+            logger.info(f"    📝 Transcript text preview: '{transcript_text[:100]}{'...' if len(transcript_text) > 100 else ''}'")
+            
             # Calculate average confidence
-            items = transcript_data.get('results', {}).get('items', [])
+            items = results.get('items', [])
             confidences = [
                 float(item.get('alternatives', [{}])[0].get('confidence', 0))
                 for item in items
@@ -324,13 +349,16 @@ class TranscribeAnalyzer:
             transcript_json = json.loads(response['Body'].read().decode('utf-8'))
             
             logger.info(f"    ✅ Transcript downloaded successfully ({len(str(transcript_json))} characters)")
+            logger.info(f"    📄 Transcript file kept at: s3://{bucket}/{key}")
             
-            # Clean up the transcript file
-            try:
-                s3_client.delete_object(Bucket=bucket, Key=key)
-                logger.info(f"    🗑️ Cleaned up transcript file")
-            except Exception as cleanup_error:
-                logger.warning(f"    ⚠️ Failed to cleanup transcript file: {cleanup_error}")
+            # Log transcript structure for debugging
+            results = transcript_json.get('results', {})
+            items = results.get('items', [])
+            transcripts = results.get('transcripts', [])
+            logger.info(f"    📊 Transcript structure: {len(items)} items, {len(transcripts)} transcripts")
+            
+            if not items and not transcripts:
+                logger.warning(f"    ⚠️ No audio content detected in transcript - video may not have audio or audio format unsupported")
             
             return transcript_json
             

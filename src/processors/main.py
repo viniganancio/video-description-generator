@@ -86,18 +86,22 @@ def lambda_handler(event, context):
         # Process the video
         result = processor.process_video_from_s3(job_id, s3_key)
         
-        # Update job with final results
+        # Update job with final results - convert floats to Decimal for DynamoDB
+        details = {
+            'completed_at': datetime.utcnow().isoformat(),
+            'description': result.get('description'),
+            'visual_analysis': result.get('visual_analysis'),
+            'audio_analysis': result.get('audio_analysis'),
+            'confidence_score': result.get('confidence_score', 0.0),
+            'processing_duration': result.get('processing_duration', 0)
+        }
+        # Convert floats to Decimal for DynamoDB compatibility
+        converted_details = aws_services._convert_floats_to_decimal(details)
+        
         aws_services.update_job_status(
             job_id=job_id,
             status='completed',
-            details={
-                'completed_at': datetime.utcnow().isoformat(),
-                'description': result.get('description'),
-                'visual_analysis': result.get('visual_analysis'),
-                'audio_analysis': result.get('audio_analysis'),
-                'confidence_score': result.get('confidence_score', 0.0),
-                'processing_duration': result.get('processing_duration', 0)
-            }
+            details=converted_details
         )
         
         logger.info(f"Successfully processed video job {job_id}")
