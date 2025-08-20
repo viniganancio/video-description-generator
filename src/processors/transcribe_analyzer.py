@@ -30,18 +30,25 @@ class TranscribeAnalyzer:
         Returns:
             dict: Transcription results
         """
+        start_time = time.time()
         transcription_job_name = f"transcribe-{job_id}-{int(time.time())}"
         
         try:
-            logger.info(f"Starting transcription job: {transcription_job_name}")
+            logger.info(f"🎧 TRANSCRIBE STEP 1/4: Starting audio transcription for s3://{self.s3_bucket}/{s3_key}")
+            logger.info(f"🎯 Transcription Job: {transcription_job_name}")
             
             # Start transcription job
+            logger.info(f"🚀 TRANSCRIBE STEP 2/4: Configuring transcription job...")
             media_uri = f"s3://{self.s3_bucket}/{s3_key}"
+            media_format = self._detect_media_format(s3_key)
+            
+            logger.info(f"  📹 Media URI: {media_uri}")
+            logger.info(f"  📀 Media Format: {media_format}")
             
             job_config = {
                 'TranscriptionJobName': transcription_job_name,
                 'LanguageCode': 'en-US',  # Default to English, could be auto-detected
-                'MediaFormat': self._detect_media_format(s3_key),
+                'MediaFormat': media_format,
                 'Media': {'MediaFileUri': media_uri},
                 'OutputBucketName': self.s3_bucket,
                 'OutputKey': f'transcriptions/{job_id}/',
@@ -55,18 +62,37 @@ class TranscribeAnalyzer:
             
             # Add language identification if supported
             try:
+                logger.info(f"  🌍 Enabling automatic language identification...")
                 job_config['IdentifyLanguage'] = True
                 job_config.pop('LanguageCode')  # Remove language code when using identification
+                logger.info(f"  ✅ Auto language detection enabled")
             except Exception:
+                logger.info(f"  ⚠️ Using default language: en-US")
                 pass  # Fall back to English if language identification isn't supported
             
+            logger.info(f"  🔄 Starting transcription job...")
             response = self.transcribe.start_transcription_job(**job_config)
+            logger.info(f"  ✅ Transcription job started successfully")
             
             # Wait for job completion
+            logger.info(f"⏳ TRANSCRIBE STEP 3/4: Waiting for transcription to complete...")
             result = self._wait_for_transcription_completion(transcription_job_name)
             
             # Process and return results
-            return self._process_transcription_results(result)
+            logger.info(f"📊 TRANSCRIBE STEP 4/4: Processing transcription results...")
+            processed_results = self._process_transcription_results(result)
+            
+            processing_duration = time.time() - start_time
+            logger.info(f"🎉 Transcription completed successfully in {processing_duration:.2f} seconds")
+            logger.info(f"📈 Results summary:")
+            logger.info(f"  - Transcript length: {len(processed_results.get('transcript', ''))} characters")
+            logger.info(f"  - Word count: {processed_results.get('word_count', 0)}")
+            logger.info(f"  - Confidence: {processed_results.get('confidence', 0):.2f}")
+            logger.info(f"  - Language: {processed_results.get('language_code', 'unknown')}")
+            logger.info(f"  - Duration: {processed_results.get('duration_seconds', 0):.1f}s")
+            logger.info(f"  - Speakers detected: {len(processed_results.get('speaker_labels', []))}")
+            
+            return processed_results
             
         except ClientError as e:
             error_code = e.response['Error']['Code']
@@ -141,6 +167,9 @@ class TranscribeAnalyzer:
             dict: Transcription job response
         """
         start_time = time.time()
+        check_count = 0
+        
+        logger.info(f"    ⏳ Polling transcription job status...")
         
         while time.time() - start_time < timeout:
             try:
@@ -149,17 +178,24 @@ class TranscribeAnalyzer:
                 )
                 
                 status = response['TranscriptionJob']['TranscriptionJobStatus']
+                check_count += 1
+                elapsed_time = time.time() - start_time
                 
                 if status == 'COMPLETED':
+                    logger.info(f"    ✅ Transcription completed successfully after {elapsed_time:.1f}s ({check_count} checks)")
                     return response
                 elif status == 'FAILED':
                     failure_reason = response['TranscriptionJob'].get(
                         'FailureReason', 'Unknown failure'
                     )
+                    logger.error(f"    ❌ Transcription job failed: {failure_reason}")
                     raise Exception(f"Transcription job failed: {failure_reason}")
                 elif status in ['IN_PROGRESS', 'QUEUED']:
+                    if check_count % 2 == 0:  # Log every 2nd check to reduce noise
+                        logger.info(f"    🔄 Transcription {status.lower()}... ({elapsed_time:.1f}s elapsed, {check_count} checks)")
                     time.sleep(10)  # Wait 10 seconds before checking again
                 else:
+                    logger.error(f"    ❌ Unexpected transcription status: {status}")
                     raise Exception(f"Unexpected transcription status: {status}")
                     
             except ClientError as e:
@@ -168,6 +204,7 @@ class TranscribeAnalyzer:
                 else:
                     raise
         
+        logger.error(f"    ⏰ Transcription timed out after {timeout} seconds ({check_count} checks)")
         raise Exception(f"Transcription timed out after {timeout} seconds")
     
     def _process_transcription_results(self, transcription_response: Dict[str, Any]) -> Dict[str, Any]:
@@ -244,26 +281,33 @@ class TranscribeAnalyzer:
             import json
             import urllib.parse
             
+            logger.info(f"    📋 Downloading transcript from: {transcript_uri}")
+            
             # Parse S3 URI
             parsed_uri = urllib.parse.urlparse(transcript_uri)
             bucket = parsed_uri.netloc
             key = parsed_uri.path.lstrip('/')
+            
+            logger.info(f"    📺 S3 location: s3://{bucket}/{key}")
             
             # Download from S3
             s3_client = boto3.client('s3')
             response = s3_client.get_object(Bucket=bucket, Key=key)
             transcript_json = json.loads(response['Body'].read().decode('utf-8'))
             
+            logger.info(f"    ✅ Transcript downloaded successfully ({len(str(transcript_json))} characters)")
+            
             # Clean up the transcript file
             try:
                 s3_client.delete_object(Bucket=bucket, Key=key)
+                logger.info(f"    🗑️ Cleaned up transcript file")
             except Exception as cleanup_error:
-                logger.warning(f"Failed to cleanup transcript file: {cleanup_error}")
+                logger.warning(f"    ⚠️ Failed to cleanup transcript file: {cleanup_error}")
             
             return transcript_json
             
         except Exception as e:
-            logger.error(f"Failed to download transcript: {str(e)}")
+            logger.error(f"    ❌ Failed to download transcript: {str(e)}")
             return None
     
     def _extract_speaker_labels(self, transcript_data: Dict[str, Any]) -> List[Dict[str, Any]]:

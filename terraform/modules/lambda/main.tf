@@ -71,11 +71,12 @@ resource "aws_lambda_function" "processor" {
 
   environment {
     variables = {
-      S3_BUCKET_NAME       = var.s3_bucket_name
-      DYNAMODB_TABLE_NAME  = var.dynamodb_table_name
-      BEDROCK_MODEL_ID     = var.bedrock_model_id
-      MAX_VIDEO_SIZE_MB    = tostring(var.max_video_size_mb)
-      LOG_LEVEL           = "INFO"
+      S3_BUCKET_NAME          = var.s3_bucket_name
+      DYNAMODB_TABLE_NAME     = var.dynamodb_table_name
+      DYNAMODB_CACHE_TABLE_NAME = var.dynamodb_cache_table_name
+      BEDROCK_MODEL_ID        = var.bedrock_model_id
+      MAX_VIDEO_SIZE_MB       = tostring(var.max_video_size_mb)
+      LOG_LEVEL              = "INFO"
     }
   }
 

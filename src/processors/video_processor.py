@@ -120,26 +120,32 @@ class VideoProcessor:
         start_time = time.time()
         
         try:
-            logger.info(f"Starting S3 video processing for job {job_id}, key: {s3_key}")
+            logger.info(f"🎬 STEP 1/6: Starting S3 video processing for job {job_id}, key: {s3_key}")
             
             # Check cache first using S3 key
+            logger.info(f"🔍 STEP 2/6: Checking cache for S3 key: {s3_key}")
             cached_result = self._check_cache_by_key(s3_key)
             if cached_result:
-                logger.info(f"Found cached result for S3 key: {s3_key}")
+                logger.info(f"✅ Cache hit! Found cached result for S3 key: {s3_key}")
                 return cached_result
+            logger.info(f"❌ Cache miss. Proceeding with full analysis...")
             
             # Verify S3 object exists
+            logger.info(f"📁 STEP 3/6: Verifying S3 object exists: s3://{self.s3_bucket}/{s3_key}")
             try:
-                self.aws_services.s3_client.head_object(Bucket=self.s3_bucket, Key=s3_key)
+                obj_info = self.aws_services.s3_client.head_object(Bucket=self.s3_bucket, Key=s3_key)
+                file_size_mb = obj_info['ContentLength'] / (1024 * 1024)
+                logger.info(f"✅ S3 object verified. Size: {file_size_mb:.2f} MB")
             except Exception as e:
+                logger.error(f"❌ S3 object verification failed: {s3_key} - {str(e)}")
                 raise ValueError(f"S3 object not found: {s3_key} - {str(e)}")
             
             # Run parallel analysis directly on S3 video
-            logger.info("Starting parallel analysis...")
+            logger.info(f"🔄 STEP 4/6: Starting parallel analysis (Rekognition + Transcribe)...")
             visual_analysis, audio_analysis = self._run_parallel_analysis(s3_key, job_id)
             
             # Generate description using Bedrock
-            logger.info("Generating description...")
+            logger.info(f"🤖 STEP 5/6: Generating AI description using Bedrock...")
             description_result = self.bedrock_client.generate_description(
                 visual_analysis=visual_analysis,
                 audio_analysis=audio_analysis,
@@ -163,9 +169,15 @@ class VideoProcessor:
             }
             
             # Cache the result using S3 key
+            logger.info(f"💾 STEP 6/6: Caching results...")
             self._cache_result_by_key(s3_key, result)
             
-            logger.info(f"S3 video processing completed in {processing_duration:.2f} seconds")
+            logger.info(f"🎉 SUCCESS: S3 video processing completed in {processing_duration:.2f} seconds")
+            logger.info(f"📊 Final Results Summary:")
+            logger.info(f"   - Description length: {len(result.get('description', ''))}")
+            logger.info(f"   - Confidence score: {confidence_score:.2f}")
+            logger.info(f"   - Visual analysis status: {'✅ Success' if not visual_analysis.get('error') else '❌ Error'}")
+            logger.info(f"   - Audio analysis status: {'✅ Success' if not audio_analysis.get('error') else '❌ Error'}")
             return result
             
         except Exception as e:

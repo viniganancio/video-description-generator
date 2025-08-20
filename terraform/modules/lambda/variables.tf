@@ -18,6 +18,11 @@ variable "dynamodb_table_name" {
   type        = string
 }
 
+variable "dynamodb_cache_table_name" {
+  description = "DynamoDB cache table name"
+  type        = string
+}
+
 variable "processor_role_arn" {
   description = "IAM role ARN for processor Lambda"
   type        = string

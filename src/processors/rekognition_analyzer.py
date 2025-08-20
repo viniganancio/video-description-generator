@@ -30,7 +30,9 @@ class RekognitionAnalyzer:
         Returns:
             dict: Combined analysis results
         """
-        logger.info(f"Starting Rekognition analysis for {s3_key}")
+        start_time = time.time()
+        logger.info(f"👀 REKOGNITION STEP 1/4: Starting visual analysis for s3://{self.s3_bucket}/{s3_key}")
+        logger.info(f"🎯 Job ID: {job_id}")
         
         video_input = {
             'S3Object': {
@@ -43,57 +45,84 @@ class RekognitionAnalyzer:
         analysis_jobs = {}
         
         try:
+            logger.info(f"🚀 REKOGNITION STEP 2/4: Starting parallel analysis jobs...")
+            
             # Start label detection
+            logger.info(f"  📋 Starting label detection...")
             labels_response = self.rekognition.start_label_detection(
                 Video=video_input,
                 JobTag=f"labels-{job_id}"
             )
             analysis_jobs['labels'] = labels_response['JobId']
+            logger.info(f"  ✅ Label detection started - Job ID: {labels_response['JobId']}")
             
             # Start celebrity recognition
             try:
+                logger.info(f"  🌟 Starting celebrity recognition...")
                 celebrities_response = self.rekognition.start_celebrity_recognition(
                     Video=video_input,
                     JobTag=f"celebrities-{job_id}"
                 )
                 analysis_jobs['celebrities'] = celebrities_response['JobId']
+                logger.info(f"  ✅ Celebrity recognition started - Job ID: {celebrities_response['JobId']}")
             except ClientError as e:
-                logger.warning(f"Celebrity recognition not available: {str(e)}")
+                logger.warning(f"  ⚠️ Celebrity recognition not available: {str(e)}")
             
             # Start text detection
             try:
+                logger.info(f"  📝 Starting text detection...")
                 text_response = self.rekognition.start_text_detection(
                     Video=video_input,
                     JobTag=f"text-{job_id}"
                 )
                 analysis_jobs['text'] = text_response['JobId']
+                logger.info(f"  ✅ Text detection started - Job ID: {text_response['JobId']}")
             except ClientError as e:
-                logger.warning(f"Text detection not available: {str(e)}")
+                logger.warning(f"  ⚠️ Text detection not available: {str(e)}")
             
             # Start content moderation
             try:
+                logger.info(f"  🛡️ Starting content moderation...")
                 moderation_response = self.rekognition.start_content_moderation(
                     Video=video_input,
                     JobTag=f"moderation-{job_id}"
                 )
                 analysis_jobs['moderation'] = moderation_response['JobId']
+                logger.info(f"  ✅ Content moderation started - Job ID: {moderation_response['JobId']}")
             except ClientError as e:
-                logger.warning(f"Content moderation not available: {str(e)}")
+                logger.warning(f"  ⚠️ Content moderation not available: {str(e)}")
+            
+            logger.info(f"🎉 Started {len(analysis_jobs)} Rekognition analysis jobs successfully")
             
             # Wait for all jobs to complete and collect results
+            logger.info(f"⏳ REKOGNITION STEP 3/4: Waiting for analysis jobs to complete...")
             results = {}
+            job_count = len(analysis_jobs)
+            completed_count = 0
+            
             for analysis_type, job_id_rek in analysis_jobs.items():
                 try:
+                    logger.info(f"  🔄 Waiting for {analysis_type} analysis to complete...")
                     result = self._wait_for_analysis_completion(analysis_type, job_id_rek)
                     results[analysis_type] = result
+                    completed_count += 1
+                    logger.info(f"  ✅ {analysis_type} analysis completed ({completed_count}/{job_count})")
                 except Exception as e:
-                    logger.error(f"Failed to get {analysis_type} results: {str(e)}")
+                    logger.error(f"  ❌ Failed to get {analysis_type} results: {str(e)}")
                     results[analysis_type] = {'error': str(e)}
+                    completed_count += 1
             
             # Process and combine results
+            logger.info(f"📊 REKOGNITION STEP 4/4: Processing and combining results...")
             combined_results = self._process_results(results)
             
-            logger.info("Rekognition analysis completed successfully")
+            processing_duration = time.time() - start_time
+            logger.info(f"🎉 Rekognition analysis completed successfully in {processing_duration:.2f} seconds")
+            logger.info(f"📈 Results summary:")
+            logger.info(f"  - Labels found: {len(combined_results.get('labels', []))}")
+            logger.info(f"  - Celebrities found: {len(combined_results.get('celebrities', []))}")
+            logger.info(f"  - Text detections: {len(combined_results.get('text', []))}")
+            logger.info(f"  - Moderation flags: {len(combined_results.get('moderation_flags', []))}")
             return combined_results
             
         except Exception as e:
@@ -119,6 +148,9 @@ class RekognitionAnalyzer:
             dict: Analysis results
         """
         start_time = time.time()
+        check_count = 0
+        
+        logger.info(f"    ⏳ Polling {analysis_type} job status (Job ID: {job_id})...")
         
         while time.time() - start_time < timeout:
             try:
@@ -134,15 +166,22 @@ class RekognitionAnalyzer:
                     raise ValueError(f"Unknown analysis type: {analysis_type}")
                 
                 job_status = response['JobStatus']
+                check_count += 1
+                elapsed_time = time.time() - start_time
                 
                 if job_status == 'SUCCEEDED':
+                    logger.info(f"    ✅ {analysis_type} job completed successfully after {elapsed_time:.1f}s ({check_count} checks)")
                     return self._extract_analysis_data(analysis_type, response)
                 elif job_status == 'FAILED':
                     error_msg = response.get('StatusMessage', 'Analysis failed')
+                    logger.error(f"    ❌ {analysis_type} job failed: {error_msg}")
                     raise Exception(f"Rekognition job failed: {error_msg}")
                 elif job_status in ['IN_PROGRESS']:
+                    if check_count % 3 == 0:  # Log every 3rd check to reduce noise
+                        logger.info(f"    🔄 {analysis_type} still in progress... ({elapsed_time:.1f}s elapsed, {check_count} checks)")
                     time.sleep(5)  # Wait 5 seconds before checking again
                 else:
+                    logger.error(f"    ❌ Unexpected job status for {analysis_type}: {job_status}")
                     raise Exception(f"Unexpected job status: {job_status}")
                     
             except ClientError as e:
@@ -151,6 +190,7 @@ class RekognitionAnalyzer:
                 else:
                     raise
         
+        logger.error(f"    ⏰ {analysis_type} analysis timed out after {timeout} seconds ({check_count} checks)")
         raise Exception(f"Analysis timed out after {timeout} seconds")
     
     def _extract_analysis_data(self, analysis_type: str, response: Dict[str, Any]) -> Dict[str, Any]:

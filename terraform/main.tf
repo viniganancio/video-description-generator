@@ -85,6 +85,7 @@ module "lambda" {
   aws_region                = var.aws_region
   s3_bucket_name            = module.s3.bucket_name
   dynamodb_table_name       = module.dynamodb.table_name
+  dynamodb_cache_table_name = module.dynamodb.cache_table_name
   processor_role_arn        = module.iam.processor_role_arn
   api_role_arn              = module.iam.api_role_arn
   processor_log_group_name  = module.cloudwatch.processor_log_group

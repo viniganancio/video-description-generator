@@ -8,6 +8,7 @@ import os
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+from decimal import Decimal
 import boto3
 from botocore.exceptions import ClientError
 
@@ -198,7 +199,8 @@ class AWSServices:
             return
             
         try:
-            cache_item = dict(result)
+            # Convert floats to Decimal for DynamoDB compatibility
+            cache_item = self._convert_floats_to_decimal(dict(result))
             cache_item.update({
                 'video_url_hash': url_hash,
                 'created_at': datetime.utcnow().isoformat(),
@@ -276,3 +278,14 @@ class AWSServices:
         except Exception as e:
             logger.error(f"Failed to cleanup old jobs: {str(e)}")
             return 0
+    
+    def _convert_floats_to_decimal(self, obj):
+        """Convert float values to Decimal for DynamoDB compatibility"""
+        if isinstance(obj, dict):
+            return {key: self._convert_floats_to_decimal(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self._convert_floats_to_decimal(item) for item in obj]
+        elif isinstance(obj, float):
+            return Decimal(str(obj))
+        else:
+            return obj

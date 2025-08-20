@@ -73,6 +73,16 @@ resource "aws_iam_role_policy" "processor_lambda_policy" {
       {
         Effect = "Allow"
         Action = [
+          "s3:GetObject"
+        ]
+        Resource = [
+          "arn:aws:s3:::*transcribe*/*",
+          "arn:aws:s3:::aws-transcribe-*/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
